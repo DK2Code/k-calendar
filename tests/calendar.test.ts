@@ -8,6 +8,8 @@ import {
   getMonthGridDays,
   getTimelineRange,
   getWeekDays,
+  pokemonGridPosition,
+  pokemonNumberFor,
   sortActivities,
   timeToMinutes,
   toDateKey,
@@ -69,4 +71,14 @@ void test('weekly timeline uses family-friendly hours and expands for early or l
     getTimelineRange([base, { ...base, id: 'b', startTime: '20:15', endTime: '21:30' }]),
     { startHour: 6, endHour: 22 },
   );
+});
+
+void test('all 151 Pokémon can be selected from the monthly icon sheet', () => {
+  assert.deepEqual(pokemonGridPosition(1), { column: 0, row: 0 });
+  assert.deepEqual(pokemonGridPosition(132), { column: 11, row: 10 });
+  assert.deepEqual(pokemonGridPosition(133), { column: 0, row: 11 });
+  assert.deepEqual(pokemonGridPosition(143), { column: 11, row: 11 });
+  assert.deepEqual(pokemonGridPosition(144), { column: 2, row: 12 });
+  assert.deepEqual(pokemonGridPosition(151), { column: 10, row: 12 });
+  assert.ok(pokemonNumberFor('September 2026') >= 1 && pokemonNumberFor('September 2026') <= 151);
 });

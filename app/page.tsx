@@ -8,12 +8,12 @@ import {
   ChevronRight,
   Clock3,
   Copy,
-  Database,
   Download,
   FileUp,
   Filter,
   MapPin,
   MoreHorizontal,
+  Palette,
   Pencil,
   Plus,
   Printer,
@@ -66,6 +66,8 @@ import {
   getTimelineRange,
   getWeekDays,
   iconOptions,
+  pokemonGridPosition,
+  pokemonNumberFor,
   seedDemoActivities,
   sortActivities,
   timeToMinutes,
@@ -78,9 +80,28 @@ import {
 } from '@/lib/calendar';
 
 const STORAGE_KEY = 'sunny-week.activities.v1';
+const THEME_STORAGE_KEY = 'sunny-week.theme.v1';
 const BACKUP_VERSION = 1;
 const TIMELINE_HOUR_HEIGHT = 64;
 const TIMELINE_EDGE_SPACE = 24;
+
+type PlannerTheme = 'sunny' | 'pokemon';
+
+function PokemonSprite({ number, className = '', label }: { number: number; className?: string; label?: string }) {
+  const { column, row } = pokemonGridPosition(number);
+  return (
+    <span
+      className={`pokemon-sprite ${className}`}
+      style={{
+        backgroundImage: 'url("pokemon/pokemon-list.jpg")',
+        backgroundPosition: `${(column / 11) * 100}% ${(row / 12) * 100}%`,
+      }}
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    />
+  );
+}
 
 function newId() {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -145,6 +166,7 @@ export default function Home() {
   const activitiesRef = useRef<Activity[]>([]);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>('week');
+  const [theme, setTheme] = useState<PlannerTheme>('sunny');
   const [childFilter, setChildFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState<ActivityCategory | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -160,6 +182,7 @@ export default function Home() {
     // oxlint-disable-next-line react/react-compiler -- browser storage is hydrated after the static shell mounts.
     setAnchor(new Date());
     try {
+      setTheme(localStorage.getItem(THEME_STORAGE_KEY) === 'pokemon' ? 'pokemon' : 'sunny');
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as unknown;
@@ -178,6 +201,15 @@ export default function Home() {
     activitiesRef.current = activities;
     if (mounted) localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
   }, [activities, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    return () => {
+      delete document.documentElement.dataset.theme;
+    };
+  }, [mounted, theme]);
 
   useEffect(() => {
     if (!notice) return;
@@ -391,18 +423,31 @@ export default function Home() {
   if (!mounted) return <PlannerLoading />;
 
   return (
-    <main className="planner-shell">
+    <main
+      className={`planner-shell theme-${theme}`}
+      style={theme === 'pokemon' ? { '--pokemon-theme-background': 'url("pokemon/Pokemon-background.jpg")' } as CSSProperties : undefined}
+    >
       <header className="topbar screen-only">
         <a className="brand" href="#main-calendar" aria-label="Sunny Week home">
-          <span className="brand-mark" aria-hidden="true"><Sparkles /></span>
+          <span className="brand-mark" aria-hidden="true"><Sparkles /><span className="pokemon-brand-image" style={{ backgroundImage: 'url("pokemon/pp-3.avif")' }} /></span>
           <span><strong>Sunny Week</strong><small>Family activity planner</small></span>
         </a>
         <div className="header-actions">
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" className="soft-button" aria-label="Calendar data options" />}>
-              <Database /><span className="hide-tablet">Data</span><MoreHorizontal />
+            <DropdownMenuTrigger render={<Button variant="outline" className="soft-button" aria-label={`Calendar options. Current theme: ${theme === 'pokemon' ? 'Pokémon' : 'Sunny Week'}`} />}>
+              <Palette /><span className="hide-tablet">Options</span><MoreHorizontal />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="data-menu">
+            <DropdownMenuContent align="end" className="data-menu theme-menu">
+              <DropdownMenuLabel>Choose a theme</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setTheme('sunny')}>
+                <span className="theme-option-icon sunny-option" aria-hidden="true">☀</span>Sunny Week
+                {theme === 'sunny' && <Check className="theme-selected" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('pokemon')}>
+                <PokemonSprite number={25} className="theme-option-pokemon" />Pokémon
+                {theme === 'pokemon' && <Check className="theme-selected" />}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Calendar data</DropdownMenuLabel>
               <DropdownMenuItem onClick={exportBackup}><Download />Download backup</DropdownMenuItem>
               <DropdownMenuItem onClick={() => importInputRef.current?.click()}><FileUp />Import backup</DropdownMenuItem>
@@ -435,7 +480,19 @@ export default function Home() {
             <Button variant="outline" size="icon" aria-label={`Previous ${view}`} onClick={() => movePeriod(-1)}><ChevronLeft /></Button>
             <Button variant="outline" size="icon" aria-label={`Next ${view}`} onClick={() => movePeriod(1)}><ChevronRight /></Button>
             <Button variant="ghost" className="today-button" onClick={() => setAnchor(new Date())}>Today</Button>
-            <div className="period-copy"><h2>{title}</h2><p>{view === 'week' ? anchor.getFullYear() : `${periodActivities.length} planned`}</p></div>
+            <div className="period-copy">
+              <div className="period-title-row">
+                <h2>{title}</h2>
+                {theme === 'pokemon' && view === 'month' && (
+                  <PokemonSprite
+                    number={pokemonNumberFor(`${anchor.getFullYear()}-${anchor.getMonth()}`)}
+                    className="monthly-pokemon"
+                    label="This month’s Pokémon"
+                  />
+                )}
+              </div>
+              <p>{view === 'week' ? anchor.getFullYear() : `${periodActivities.length} planned`}</p>
+            </div>
           </div>
           <div className="toolbar-right">
             <div className="filters" aria-label="Calendar filters">
@@ -461,7 +518,7 @@ export default function Home() {
         {view === 'week' ? (
           <WeekCalendar days={days} activities={periodActivities} onCreate={openCreate} onEdit={openEdit} onDuplicate={duplicateActivity} onDelete={setPendingDelete} />
         ) : (
-          <MonthCalendar anchor={anchor} days={days} activities={periodActivities} onCreate={openCreate} onEdit={openEdit} />
+          <MonthCalendar anchor={anchor} days={days} activities={periodActivities} onCreate={openCreate} onEdit={openEdit} pokemonTheme={theme === 'pokemon'} />
         )}
 
         {!periodActivities.length && (
@@ -479,7 +536,7 @@ export default function Home() {
         </div>
       </section>
 
-      <PrintPlan view={view} title={title} days={days} activities={periodActivities} familyMembers={children} anchor={anchor} />
+      <PrintPlan view={view} title={title} days={days} activities={periodActivities} familyMembers={children} anchor={anchor} theme={theme} />
 
       <ActivityDialog
         open={dialogOpen}
@@ -606,12 +663,13 @@ function WeekCalendar({ days, activities, onCreate, onEdit, onDuplicate, onDelet
   );
 }
 
-function MonthCalendar({ anchor, days, activities, onCreate, onEdit }: {
+function MonthCalendar({ anchor, days, activities, onCreate, onEdit, pokemonTheme }: {
   anchor: Date;
   days: Date[];
   activities: Activity[];
   onCreate: (date: string) => void;
   onEdit: (activity: Activity) => void;
+  pokemonTheme: boolean;
 }) {
   const today = toDateKey(new Date());
   return (
@@ -632,7 +690,10 @@ function MonthCalendar({ anchor, days, activities, onCreate, onEdit }: {
               <div className="month-activities">
                 {dayActivities.slice(0, 3).map((activity) => (
                   <button className={`month-activity color-${activity.color}`} type="button" onClick={() => onEdit(activity)} key={activity.id}>
-                    <span aria-hidden="true">{activity.icon}</span><strong>{formatTimeRange(activity.startTime, activity.endTime).split('–')[0]}</strong>{activity.title}
+                    {pokemonTheme
+                      ? <PokemonSprite number={pokemonNumberFor(`${activity.id}-${activity.date}-${activity.title}`)} className="month-activity-pokemon" />
+                      : <span aria-hidden="true">{activity.icon}</span>}
+                    <strong>{formatTimeRange(activity.startTime, activity.endTime).split('–')[0]}</strong>{activity.title}
                   </button>
                 ))}
                 {dayActivities.length > 3 && <span className="more-count">+{dayActivities.length - 3} more</span>}
@@ -729,11 +790,13 @@ function ActivityDialog({ open, onOpenChange, editing, draft, errors, onDraftCha
   );
 }
 
-function PrintActivity({ activity, compact = false }: { activity: Activity; compact?: boolean }) {
+function PrintActivity({ activity, compact = false, pokemonIcon = false }: { activity: Activity; compact?: boolean; pokemonIcon?: boolean }) {
   return (
     <div className={`print-activity color-${activity.color} ${compact ? 'compact' : ''}`}>
       <span className="print-check" aria-hidden="true" />
-      <span className="print-icon" aria-hidden="true">{activity.icon}</span>
+      {pokemonIcon
+        ? <PokemonSprite number={pokemonNumberFor(`${activity.id}-${activity.date}-${activity.title}`)} className="print-icon print-pokemon-icon" />
+        : <span className="print-icon" aria-hidden="true">{activity.icon}</span>}
       <div>
         <strong>{activity.title}</strong>
         <p>{formatTimeRange(activity.startTime, activity.endTime)} · {activity.child}</p>
@@ -744,18 +807,24 @@ function PrintActivity({ activity, compact = false }: { activity: Activity; comp
   );
 }
 
-function PrintPlan({ view, title, days, activities, familyMembers, anchor }: {
+function PrintPlan({ view, title, days, activities, familyMembers, anchor, theme }: {
   view: ViewMode;
   title: string;
   days: Date[];
   activities: Activity[];
   familyMembers: string[];
   anchor: Date;
+  theme: PlannerTheme;
 }) {
   return (
-    <section className="print-sheet" aria-hidden="true">
+    <section className={`print-sheet print-theme-${theme}`} aria-hidden="true">
       <header className="print-header">
-        <div><span className="print-sun">☀</span><div><h1>Sunny Week</h1><p>{view === 'week' ? 'My weekly plan' : 'My monthly plan'}</p></div></div>
+        <div>
+          {theme === 'pokemon'
+            ? <span className="print-theme-image" style={{ backgroundImage: 'url("pokemon/pp-3.avif")' }} />
+            : <span className="print-sun">☀</span>}
+          <div><h1>Sunny Week</h1><p>{view === 'week' ? 'My weekly plan' : 'My monthly plan'}</p></div>
+        </div>
         <div className="print-period"><strong>{title}</strong><span>{familyMembers.length ? familyMembers.join(' · ') : 'Our family plan'}</span></div>
       </header>
       {view === 'week' ? (
@@ -778,7 +847,7 @@ function PrintPlan({ view, title, days, activities, familyMembers, anchor }: {
             {days.map((day) => {
               const key = toDateKey(day);
               const dayActivities = activities.filter((activity) => activity.date === key);
-              return <section className={day.getMonth() !== anchor.getMonth() ? 'outside' : ''} key={key}><h2>{day.getDate()}</h2>{dayActivities.map((activity) => <PrintActivity compact activity={activity} key={activity.id} />)}</section>;
+              return <section className={day.getMonth() !== anchor.getMonth() ? 'outside' : ''} key={key}><h2>{day.getDate()}</h2>{dayActivities.map((activity) => <PrintActivity compact pokemonIcon={theme === 'pokemon'} activity={activity} key={activity.id} />)}</section>;
             })}
           </div>
         </div>

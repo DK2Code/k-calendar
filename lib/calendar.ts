@@ -61,6 +61,26 @@ export const colorOptions: Array<{ value: ActivityColor; label: string }> = [
 
 export const iconOptions = ['⚽', '🏀', '🏊', '🎒', '📚', '✏️', '♫', '🎨', '★', '🩺', '🚲', '♥', '☀️'];
 
+export const POKEMON_COUNT = 151;
+
+export function pokemonGridPosition(number: number): { column: number; row: number } {
+  const normalized = Math.min(POKEMON_COUNT, Math.max(1, number));
+  if (normalized <= 132) {
+    return { column: (normalized - 1) % 12, row: Math.floor((normalized - 1) / 12) };
+  }
+  if (normalized <= 143) {
+    const penultimateRowColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11];
+    return { column: penultimateRowColumns[normalized - 133], row: 11 };
+  }
+  const finalRowColumns = [2, 3, 5, 6, 7, 8, 9, 10];
+  return { column: finalRowColumns[normalized - 144], row: 12 };
+}
+
+export function pokemonNumberFor(value: string): number {
+  const hash = Array.from(value).reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 7);
+  return (hash % POKEMON_COUNT) + 1;
+}
+
 export function dateFromKey(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 12, 0, 0, 0);
