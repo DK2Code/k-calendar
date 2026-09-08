@@ -33,6 +33,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -438,19 +439,23 @@ export default function Home() {
               <Palette /><span className="hide-tablet">Options</span><MoreHorizontal />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="data-menu theme-menu">
-              <DropdownMenuLabel>Choose a theme</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setTheme('sunny')}>
-                <span className="theme-option-icon sunny-option" aria-hidden="true">☀</span>Sunny Week
-                {theme === 'sunny' && <Check className="theme-selected" />}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme('pokemon')}>
-                <PokemonSprite number={25} className="theme-option-pokemon" />Pokémon
-                {theme === 'pokemon' && <Check className="theme-selected" />}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Choose a theme</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setTheme('sunny')}>
+                  <span className="theme-option-icon sunny-option" aria-hidden="true">☀</span>Sunny Week
+                  {theme === 'sunny' && <Check className="theme-selected" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('pokemon')}>
+                  <PokemonSprite number={25} className="theme-option-pokemon" />Pokémon
+                  {theme === 'pokemon' && <Check className="theme-selected" />}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Calendar data</DropdownMenuLabel>
-              <DropdownMenuItem onClick={exportBackup}><Download />Download backup</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => importInputRef.current?.click()}><FileUp />Import backup</DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Calendar data</DropdownMenuLabel>
+                <DropdownMenuItem onClick={exportBackup}><Download />Download backup</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => importInputRef.current?.click()}><FileUp />Import backup</DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setClearOpen(true)}><Trash2 />Clear all activities</DropdownMenuItem>
             </DropdownMenuContent>
