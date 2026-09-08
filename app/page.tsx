@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   CalendarDays,
   Check,
@@ -59,13 +59,16 @@ import {
   childColorIndex,
   colorOptions,
   dateFromKey,
+  formatTime,
   formatTimeRange,
   getCategory,
   getMonthGridDays,
+  getTimelineRange,
   getWeekDays,
   iconOptions,
   seedDemoActivities,
   sortActivities,
+  timeToMinutes,
   toDateKey,
   type Activity,
   type ActivityCategory,
@@ -76,6 +79,8 @@ import {
 
 const STORAGE_KEY = 'sunny-week.activities.v1';
 const BACKUP_VERSION = 1;
+const TIMELINE_HOUR_HEIGHT = 64;
+const TIMELINE_EDGE_SPACE = 24;
 
 function newId() {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -518,22 +523,29 @@ export default function Home() {
   );
 }
 
-function ActivityCard({ activity, onEdit, onDuplicate, onDelete }: {
+function TimelineActivityCard({ activity, startHour, onEdit, onDuplicate, onDelete }: {
   activity: Activity;
+  startHour: number;
   onEdit: (activity: Activity) => void;
   onDuplicate: (activity: Activity) => void;
   onDelete: (activity: Activity) => void;
 }) {
+  const rawStart = timeToMinutes(activity.startTime);
+  const rawEnd = timeToMinutes(activity.endTime);
+  const start = Number.isFinite(rawStart) ? rawStart : startHour * 60;
+  const end = Number.isFinite(rawEnd) ? rawEnd : start + 60;
+  const top = TIMELINE_EDGE_SPACE + ((start - startHour * 60) / 60) * TIMELINE_HOUR_HEIGHT;
+  const height = Math.max(((end - start) / 60) * TIMELINE_HOUR_HEIGHT, 58);
+
   return (
-    <article className={`activity-card color-${activity.color}`}>
-      <button className="activity-card-main" type="button" onClick={() => onEdit(activity)} aria-label={`Edit ${activity.title}`}>
-        <span className="activity-icon" aria-hidden="true">{activity.icon}</span>
-        <span className="activity-title">{activity.title}</span>
-        <span className="activity-detail"><Clock3 />{formatTimeRange(activity.startTime, activity.endTime)}</span>
-        {activity.location && <span className="activity-detail"><MapPin />{activity.location}</span>}
-        <span className={`child-pill child-bg-${childColorIndex(activity.child)}`}>{activity.child}</span>
+    <article className={`timeline-activity color-${activity.color}`} style={{ top, height }}>
+      <button className="timeline-activity-main" type="button" onClick={() => onEdit(activity)} aria-label={`Edit ${activity.title}, ${formatTimeRange(activity.startTime, activity.endTime)}`}>
+        <span className="timeline-activity-title"><span aria-hidden="true">{activity.icon}</span><strong>{activity.title}</strong></span>
+        <span className="timeline-activity-time"><Clock3 />{formatTimeRange(activity.startTime, activity.endTime)}</span>
+        {activity.location && <span className="timeline-activity-location"><MapPin />{activity.location}</span>}
+        <span className={`timeline-child child-bg-${childColorIndex(activity.child)}`}>{activity.child}</span>
       </button>
-      <div className="activity-actions">
+      <div className="timeline-activity-actions">
         <button type="button" onClick={() => onEdit(activity)} aria-label={`Edit ${activity.title}`}><Pencil /></button>
         <button type="button" onClick={() => onDuplicate(activity)} aria-label={`Duplicate ${activity.title}`}><Copy /></button>
         <button type="button" className="delete-action" onClick={() => onDelete(activity)} aria-label={`Delete ${activity.title}`}><Trash2 /></button>
@@ -551,29 +563,45 @@ function WeekCalendar({ days, activities, onCreate, onEdit, onDuplicate, onDelet
   onDelete: (activity: Activity) => void;
 }) {
   const today = toDateKey(new Date());
+  const { startHour, endHour } = getTimelineRange(activities);
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
+  const bodyHeight = (endHour - startHour) * TIMELINE_HOUR_HEIGHT + TIMELINE_EDGE_SPACE * 2;
+  const timelineStyle = { '--timeline-body-height': `${bodyHeight}px` } as CSSProperties;
+
   return (
-    <div className="week-grid" aria-label="Weekly activity calendar">
-      {days.map((day) => {
-        const key = toDateKey(day);
-        const dayActivities = activities.filter((activity) => activity.date === key);
-        return (
-          <section className={`day-column ${key === today ? 'today' : ''}`} key={key} aria-labelledby={`day-${key}`}>
-            <header className="day-heading" id={`day-${key}`}>
+    <div className="week-timeline" aria-label="Weekly activity calendar with hourly time guide">
+      <div className="week-timeline-grid" style={timelineStyle}>
+        <div className="timeline-corner"><Clock3 /><span>Time</span></div>
+        {days.map((day) => {
+          const key = toDateKey(day);
+          return (
+            <header className={`timeline-day-heading ${key === today ? 'today' : ''}`} id={`day-${key}`} key={`heading-${key}`}>
               <span>{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
               <strong>{day.getDate()}</strong>
               {key === today && <small>Today</small>}
+              <button type="button" onClick={() => onCreate(key)} aria-label={`Add an activity on ${day.toLocaleDateString('en-US', { weekday: 'long' })}`}><Plus /></button>
             </header>
-            <div className="day-activities">
+          );
+        })}
+        <aside className="timeline-time-axis" aria-label={`Hours from ${formatTime(`${String(startHour % 24).padStart(2, '0')}:00`)} to ${formatTime(`${String(endHour % 24).padStart(2, '0')}:00`)}`}>
+          {hours.map((hour, index) => (
+            <span className="timeline-hour-label" style={{ top: TIMELINE_EDGE_SPACE + index * TIMELINE_HOUR_HEIGHT }} key={hour}>
+              {formatTime(`${String(hour % 24).padStart(2, '0')}:00`).replace(':00 ', ' ')}
+            </span>
+          ))}
+        </aside>
+        {days.map((day) => {
+          const key = toDateKey(day);
+          const dayActivities = activities.filter((activity) => activity.date === key);
+          return (
+            <section className={`timeline-day ${key === today ? 'today' : ''}`} key={key} aria-labelledby={`day-${key}`}>
               {dayActivities.map((activity) => (
-                <ActivityCard key={activity.id} activity={activity} onEdit={onEdit} onDuplicate={onDuplicate} onDelete={onDelete} />
+                <TimelineActivityCard key={activity.id} activity={activity} startHour={startHour} onEdit={onEdit} onDuplicate={onDuplicate} onDelete={onDelete} />
               ))}
-              <button className={dayActivities.length ? 'add-to-day' : 'empty-day'} type="button" onClick={() => onCreate(key)} aria-label={`Add an activity on ${day.toLocaleDateString('en-US', { weekday: 'long' })}`}>
-                <Plus /><span>{dayActivities.length ? 'Add another' : 'Free day'}</span>
-              </button>
-            </div>
-          </section>
-        );
-      })}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

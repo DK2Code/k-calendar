@@ -113,6 +113,30 @@ export function formatTimeRange(startTime: string, endTime: string): string {
   return `${formatTime(startTime)}–${formatTime(endTime)}`;
 }
 
+export function timeToMinutes(value: string): number {
+  if (!/^\d{2}:\d{2}$/.test(value)) return Number.NaN;
+  const [hours, minutes] = value.split(':').map(Number);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return Number.NaN;
+  return hours * 60 + minutes;
+}
+
+export function getTimelineRange(activities: Activity[]): { startHour: number; endHour: number } {
+  let startHour = 7;
+  let endHour = 20;
+
+  for (const activity of activities) {
+    const start = timeToMinutes(activity.startTime);
+    const end = timeToMinutes(activity.endTime);
+    if (Number.isFinite(start)) startHour = Math.min(startHour, Math.floor(start / 60));
+    if (Number.isFinite(end)) endHour = Math.max(endHour, Math.ceil(end / 60));
+  }
+
+  return {
+    startHour: Math.max(0, startHour),
+    endHour: Math.min(24, endHour),
+  };
+}
+
 export function sortActivities(activities: Activity[]): Activity[] {
   return [...activities].sort((a, b) =>
     `${a.date}-${a.startTime}-${a.title}`.localeCompare(`${b.date}-${b.startTime}-${b.title}`),

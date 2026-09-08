@@ -6,8 +6,10 @@ import {
   dateFromKey,
   formatTimeRange,
   getMonthGridDays,
+  getTimelineRange,
   getWeekDays,
   sortActivities,
+  timeToMinutes,
   toDateKey,
   type Activity,
   type ActivityDraft,
@@ -53,4 +55,18 @@ void test('activity validation rejects blank names and reversed times', () => {
 
 void test('time ranges are easy to read', () => {
   assert.equal(formatTimeRange('09:05', '13:30'), '9:05 AM–1:30 PM');
+});
+
+void test('weekly timeline uses family-friendly hours and expands for early or late plans', () => {
+  const base: Activity = {
+    id: 'a', title: 'Breakfast club', date: '2026-09-08', startTime: '06:30', endTime: '07:30',
+    child: 'Maya', location: '', notes: '', category: 'clubs', color: 'yellow', icon: '★',
+  };
+
+  assert.equal(timeToMinutes('16:45'), 1005);
+  assert.deepEqual(getTimelineRange([]), { startHour: 7, endHour: 20 });
+  assert.deepEqual(
+    getTimelineRange([base, { ...base, id: 'b', startTime: '20:15', endTime: '21:30' }]),
+    { startHour: 6, endHour: 22 },
+  );
 });
